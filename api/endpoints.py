@@ -56,11 +56,11 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type):
                 'type': 'object',
                 'properties': {
                     'ingredient': {'type': 'string'},
-                    'country_origin': {'type': 'string'},
+                    'type_food': {'type': 'string'},
                     'maximum_calories': {'type': 'string'},
                     'preparation_type': {'type': 'string'}
                 },
-                'required': ['ingredient', 'country_origin', 'maximum_calories', 'preparation_type']
+                'required': ['ingredient', 'type_food', 'maximum_calories', 'preparation_type']
             }
         }
     ],
