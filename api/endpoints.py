@@ -72,8 +72,8 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type):
                     "title": "Pollo al Limón con Papas Andinas",
                     "description": "Un plato típico de la cocina peruana...",
                     "ingredients": [
-                        {"name": "pollo", "quantity": "200 gramos"},
-                        {"name": "limón", "quantity": "1 unidad"}
+                        "Ingrediente 1",
+                        "Ingrediente 2"
                     ],
                     "instructions": [
                         "Paso 1: ...",
