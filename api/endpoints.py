@@ -12,22 +12,21 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 
 api_blueprint = Blueprint("api", __name__)
 
-def build_prompt(ingredient, type_food, maximum_calories, preparation_type):
+def build_prompt(ingredient, type_food, maximum_calories, preparation_type, dish_style, difficulty, special_equipment, flavor_profile, course_type):
     return (
         f"Actúa como un chef profesional con años de experiencia. Crea una receta en español "
         f"que cumpla con los siguientes criterios y devuélvela **exclusivamente** en formato JSON, "
         f"\n'title': nombre de la receta,"
-        f"\n'description': descripción semidetallada del platillo,"
+        f"\n'description': descripción detallada del platillo,"
         f"\n'ingredients': lista de ingredientes con cantidades,"
         f"\n'instructions': lista de pasos para la preparación,"
         f"\n'prep_time': tiempo total estimado de preparación,"
-        f"\n'calories_per_serving': calorías aproximadas por porción."
+        f"\n'calories_per_serving': calorías aproximadas por porción, con breve explicación."
         f"Respeta el siguiente orden y estructura de claves:\n\n"
         f"{{\n"
         f"  \"title\": string,\n"
         f"  \"description\": string,\n"
         f"  \"ingredients\": [string],\n"
-        f"  ],\n"
         f"  \"instructions\": [string],\n"
         f"  \"prep_time\": string,\n"
         f"  \"calories_per_serving\": string\n"
@@ -35,10 +34,15 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type):
         f"No agregues explicaciones ni texto adicional. Solo devuelve el JSON con los valores correspondientes.\n\n"
         f"---\n"
         f"Instrucciones para la receta:\n"
-        f"- Ingredientes disponibles: {ingredient}.\n"
+        f"- Ingredientes disponibles y sus cantidades: {ingredient}.\n"
         f"- Tipo de comida: {type_food}.\n"
         f"- Límite de calorías: {maximum_calories} kcal.\n"
         f"- Tipo de preparación: {preparation_type}.\n"
+        f"- Estilo de plato o gastronomía particular: {dish_style}.\n"
+        f"- Dificultad de la receta: {difficulty}.\n"
+        f"- Equipamiento especial necesario: {special_equipment}.\n"
+        f"- Perfil de sabor que debería dominar: {flavor_profile}.\n"
+        f"- Tipo de plato: {course_type}.\n"
         f"---"
     )
 
@@ -100,6 +104,11 @@ def generate_recipe():
         "type_food",
         "maximum_calories",
         "preparation_type",
+        "dish_style",
+        "difficulty",
+        "special_equipment",
+        "flavor_profile",
+        "course_type"
     ]
 
     missing_params = [param for param in required_params if param not in data]
@@ -111,9 +120,14 @@ def generate_recipe():
     type_food = data.get("type_food")
     maximum_calories = data.get("maximum_calories")
     preparation_type = data.get("preparation_type")
+    dish_style = data.get("dish_style")
+    difficulty = data.get("difficulty")
+    special_equipment = data.get("special_equipment")
+    flavor_profile = data.get("flavor_profile")
+    course_type = data.get("course_type")
 
     prompt = build_prompt(
-        ingredient, type_food, maximum_calories, preparation_type
+        ingredient, type_food, maximum_calories, preparation_type, dish_style, difficulty, special_equipment, flavor_profile, course_type
     )
 
     try:
