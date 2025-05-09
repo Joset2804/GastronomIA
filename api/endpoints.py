@@ -122,8 +122,8 @@ def generate_recipe():
                 {"role": "system", "content": "Eres un chef con años de experiencia."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=3000,
-            temperature=0.7
+            max_tokens=5000,
+            temperature=0.8
         )
 
         content = response.choices[0].message.content.strip()
