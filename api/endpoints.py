@@ -1,14 +1,15 @@
 from flask import Blueprint, request, jsonify
-import openai
+from openai import OpenAI
 import json
-import os
 #from utils.openai_config import OPENAI_API_KEY
 from flasgger import swag_from
 
 
-#openai.api_key = OPENAI_API_KEY
-openai.api_key = os.getenv('OPENAI_API_KEY')
+# Inicializar cliente de OpenAI (nuevo estilo v1+)
+#client = OpenAI(api_key=OPENAI_API_KEY)
 
+# OS
+client = OpenAI()
 
 api_blueprint = Blueprint("api", __name__)
 
@@ -17,13 +18,13 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type, dish
         f"Actúa como un chef profesional con años de experiencia. Crea una receta en español "
         f"que cumpla con los siguientes criterios y devuélvela **exclusivamente** en formato JSON, "
         f"\n'title': nombre de la receta,"
-        f"\n'description': descripción detallada del platillo y a que plato de que país se asemeja o se inspira,"
+        f"\n'description': descripción detallada del platillo y a qué plato de qué país se asemeja o se inspira,"
         f"\n'ingredients': lista de ingredientes con cantidades,"
         f"\n'instructions': lista de pasos para la preparación,"
         f"\n'prep_time': tiempo total estimado de preparación,"
-        f"\n'preparation_time': tiempo en formato time de preparación (ejemplo: 01:40:00 eso es 1 hora y 40 minutos)"
-        f"\n'calories_per_serving': calorías aproximadas por porción, con breve explicación."
-        f"\n'calories': las calorías aproximadas por porción en formato integer (ejemplo: 650)"
+        f"\n'preparation_time': tiempo en formato time de preparación (ejemplo: 01:40:00 eso es 1 hora y 40 minutos),"
+        f"\n'calories_per_serving': calorías aproximadas por porción, con breve explicación,"
+        f"\n'calories': las calorías aproximadas por porción en formato integer (ejemplo: 650)."
         f"Respeta el siguiente orden y estructura de claves:\n\n"
         f"{{\n"
         f"  \"title\": string,\n"
@@ -32,7 +33,7 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type, dish
         f"  \"instructions\": [string],\n"
         f"  \"prep_time\": string,\n"
         f"  \"preparation_time\": Time,\n"
-        f"  \"calories_per_serving\": string\n"
+        f"  \"calories_per_serving\": string,\n"
         f"  \"calories\": integer\n"
         f"}}\n\n"
         f"No agregues explicaciones ni texto adicional. Solo devuelve el JSON con los valores correspondientes.\n\n"
@@ -50,7 +51,6 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type, dish
         f"---"
     )
 
-
 @api_blueprint.route("/recipe", methods=["POST"])
 @swag_from({
     'tags': ['Recetas'],
@@ -66,38 +66,21 @@ def build_prompt(ingredient, type_food, maximum_calories, preparation_type, dish
                     'ingredient': {'type': 'string'},
                     'type_food': {'type': 'string'},
                     'maximum_calories': {'type': 'string'},
-                    'preparation_type': {'type': 'string'}
+                    'preparation_type': {'type': 'string'},
+                    'dish_style': {'type': 'string'},
+                    'difficulty': {'type': 'string'},
+                    'special_equipment': {'type': 'string'},
+                    'flavor_profile': {'type': 'string'},
+                    'course_type': {'type': 'string'}
                 },
-                'required': ['ingredient', 'type_food', 'maximum_calories', 'preparation_type']
+                'required': ['ingredient', 'type_food', 'maximum_calories', 'preparation_type', 'dish_style', 'difficulty', 'special_equipment', 'flavor_profile', 'course_type']
             }
         }
     ],
     'responses': {
-        200: {
-            'description': 'Receta generada exitosamente',
-            'examples': {
-                'application/json': {
-                    "title": "Pollo al Limón con Papas Andinas",
-                    "description": "Un plato típico de la cocina peruana...",
-                    "ingredients": [
-                        "Ingrediente 1",
-                        "Ingrediente 2"
-                    ],
-                    "instructions": [
-                        "Paso 1: ...",
-                        "Paso 2: ..."
-                    ],
-                    "prep_time": "30 minutos",
-                    "calories_per_serving": 600
-                }
-            }
-        },
-        400: {
-            'description': 'Faltan parámetros requeridos'
-        },
-        500: {
-            'description': 'Error del servidor o de la API de OpenAI'
-        }
+        200: {'description': 'Receta generada exitosamente'},
+        400: {'description': 'Faltan parámetros requeridos'},
+        500: {'description': 'Error del servidor o de la API de OpenAI'}
     }
 })
 def generate_recipe():
@@ -120,53 +103,42 @@ def generate_recipe():
     if missing_params:
         return jsonify({"error": "Missing parameters", "missing": missing_params}), 400
 
-    ingredient = data.get("ingredient")
-    type_food = data.get("type_food")
-    maximum_calories = data.get("maximum_calories")
-    preparation_type = data.get("preparation_type")
-    dish_style = data.get("dish_style")
-    difficulty = data.get("difficulty")
-    special_equipment = data.get("special_equipment")
-    flavor_profile = data.get("flavor_profile")
-    course_type = data.get("course_type")
-
     prompt = build_prompt(
-        ingredient, type_food, maximum_calories, preparation_type, dish_style, difficulty, special_equipment, flavor_profile, course_type
+        data["ingredient"],
+        data["type_food"],
+        data["maximum_calories"],
+        data["preparation_type"],
+        data["dish_style"],
+        data["difficulty"],
+        data["special_equipment"],
+        data["flavor_profile"],
+        data["course_type"]
     )
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {
-                    "role": "system",
-                    "content": "Eres un chef con años de experiencia.",
-                },
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": "Eres un chef con años de experiencia."},
+                {"role": "user", "content": prompt}
             ],
-            max_tokens=5000,
-            temperature=0.7,
+            max_tokens=3000,
+            temperature=0.7
         )
 
-        answer = response.choices[0]["message"]["content"].strip()
+        content = response.choices[0].message.content.strip()
 
+        # Limpia si el contenido viene dentro de markdown (```json)
+        if content.startswith("```"):
+            content = content.strip("`")
+        if content.lower().startswith("json"):
+            content = content[4:].lstrip()
 
-        # Limpiar bloques de código tipo Markdown (```json ... ```)
-        if answer.startswith("```"):
-            answer = answer.strip("`")  # elimina los backticks
-        # Elimina el encabezado "json\n" si existe
-        if answer.lower().startswith("json"):
-            answer = answer[4:].lstrip()
-
-        # Intentar parsear la respuesta como JSON
         try:
-            parsed_response = json.loads(answer)
-            return jsonify(parsed_response)
+            parsed = json.loads(content)
+            return jsonify(parsed)
         except json.JSONDecodeError:
-            return jsonify({
-                "error": "La respuesta del modelo no se pudo parsear como JSON.",
-                "raw": answer
-            }), 500
+            return jsonify({"error": "No se pudo parsear la respuesta como JSON.", "raw": content}), 500
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
