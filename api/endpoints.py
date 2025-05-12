@@ -1,8 +1,11 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from openai import OpenAI
 import json
 #from utils.openai_config import OPENAI_API_KEY
 from flasgger import swag_from
+from PIL import Image
+import requests
+import io
 
 
 # Inicializar cliente de OpenAI (nuevo estilo v1+)
@@ -122,7 +125,7 @@ def generate_recipe():
                 {"role": "system", "content": "Eres un chef con años de experiencia."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=3000,
+            max_tokens=5000,
             temperature=0.7
         )
 
@@ -142,3 +145,80 @@ def generate_recipe():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@api_blueprint.route("/generate-image", methods=["POST"])
+@swag_from({
+    'tags': ['Recetas'],
+    'description': 'Genera una imagen de una receta usando DALL·E a partir del nombre, ingredientes y preparación.',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string'},
+                    'ingredients': {'type': 'string'},
+                    'preparation': {'type': 'string'}
+                },
+                'required': ['title', 'ingredients', 'preparation']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Imagen generada exitosamente',
+            'content': {'image/png': {}}
+        },
+        400: {
+            'description': 'Parámetros faltantes'
+        },
+        500: {
+            'description': 'Error del servidor o del API de OpenAI'
+        }
+    }
+})
+def generate_image():
+    data = request.json
+    
+    required_params = ['title', 'ingredients', 'preparation']
+    missing = [param for param in required_params if param not in data]
+    if missing:
+        return jsonify({'error': 'Missing parameters', 'missing': missing}), 400
+    
+    title = data['title']
+    ingredients = data['ingredients']
+    preparation = data['preparation']
+    
+    prompt = f"Una fotografía realista del plato llamado '{title}', hecho con los ingredientes: {ingredients}. Se prepara así: {preparation}. Presentación profesional en un plato blanco sobre una mesa de madera clara, fondo difuminado, luz natural suave."
+
+    try:
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1
+        )
+        
+        image_url = response.data[0].url
+
+        # Descargar la imagen
+        image_response = requests.get(image_url)
+        image = Image.open(io.BytesIO(image_response.content))
+
+        # Convertir a WebP y comprimir
+        webp_bytes = io.BytesIO()
+        image.convert("RGB").save(webp_bytes, format="WEBP", quality=80)
+        webp_bytes.seek(0)
+
+        return send_file(
+            webp_bytes,
+            mimetype='image/webp',
+            as_attachment=False,
+            download_name='receta.webp'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
