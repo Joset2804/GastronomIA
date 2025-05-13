@@ -9,7 +9,7 @@ import io
 
 
 # Inicializar cliente de OpenAI (nuevo estilo v1)
-#client = OpenAI(api_key=OPENAI_API_KEY)
+# client = OpenAI(api_key=OPENAI_API_KEY)
 
 # OS
 client = OpenAI()
