@@ -222,3 +222,93 @@ def generate_image():
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@api_blueprint.route("/recipe/suggestions", methods=["POST"])
+@swag_from({
+    'tags': ['Recetas'],
+    'description': 'Sugiere múltiples recetas a partir de ingredientes disponibles.',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'ingredients': {'type': 'string'}
+                },
+                'required': ['ingredients']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Lista de recetas sugeridas',
+            'examples': {
+                'application/json': [
+                    {
+                        "title": "Lomo Saltado",
+                        "description": "Plato típico peruano con carne salteada, papas y arroz.",
+                        "calories": "Este plato contiene aproximadamente 500 calorías.",
+                        "time": "Este plato se demora en preparar aproximadamente 30 minutos.",
+                        "ingredients": ["res", "tomate", "cebolla", "papa", "arroz"]
+                    }
+                ]
+            }
+        }
+    }
+})
+def suggest_recipes():
+    data = request.json
+    ingredients = data.get("ingredients")
+
+    if not ingredients:
+        return jsonify({"error": "Missing 'ingredients' parameter"}), 400
+
+    prompt = (
+        f"Eres un chef profesional. A partir de los siguientes ingredientes: {ingredients}, "
+        f"genera una lista de como máximo (si con los ingredientes no alcanza 10 recetas solo devuelve lo que alcance)10 recetas posibles."
+        f"Para cada receta, responde exclusivamente en formato JSON con los siguientes campos: "
+        f"\n'title': nombre del plato,"
+        f"\n'description': descripción corta del plato y su origen,"
+        f"\n'calories': texto breve indicando las calorías aproximadas,"
+        f"\n'time': texto breve con el tiempo estimado de preparación,"
+        f"\n'ingredients': lista de ingredientes utilizados extraídos del listado dado.\n\n"
+        f"Devuelve únicamente un JSON válido como una lista. No incluyas explicaciones ni texto adicional fuera del JSON."
+        f"Respeta el siguiente orden y estructura de claves:\n\n"
+        f"{{\n"
+        f"  \"title\": string,\n"
+        f"  \"description\": string,\n"
+        f"  \"calories\": string,\n"
+        f"  \"time\": string,\n"
+        f"  \"ingredients\": [string],\n"
+        f"}}\n\n"
+        f"No agregues explicaciones ni texto adicional. Solo devuelve el JSON con los valores correspondientes.\n\n"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Eres un chef profesional."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=3000,
+            temperature=0.8,
+        )
+
+        raw_text = response.choices[0].message.content.strip()
+
+        # Limpia posibles bloque ```json``` si vienen del modelo
+        if raw_text.startswith("```"):
+            raw_text = raw_text.strip("`")
+        if raw_text.lower().startswith("json"):
+            raw_text = raw_text[4:].strip()
+
+        import json
+        result = json.loads(raw_text)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
