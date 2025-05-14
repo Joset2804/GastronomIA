@@ -312,3 +312,108 @@ def suggest_recipes():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@api_blueprint.route("/recipe/details-from-summary", methods=["POST"])
+@swag_from({
+    'tags': ['Recetas'],
+    'description': 'Genera una receta completa basada en un resumen previo.',
+    'parameters': [
+        {
+            'name': 'body',
+            'in': 'body',
+            'required': True,
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string'},
+                    'description': {'type': 'string'},
+                    'calories': {'type': 'string'},
+                    'time': {'type': 'string'},
+                    'ingredients': {'type': 'string'}
+                },
+                'required': ['title', 'description', 'calories', 'time', 'ingredients']
+            }
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Receta detallada generada',
+        },
+        400: {
+            'description': 'Parámetros faltantes'
+        }
+    }
+})
+def generate_full_recipe_from_summary():
+    data = request.json
+
+    required = ["title", "description", "calories", "time", "ingredients"]
+    missing = [param for param in required if param not in data]
+
+    if missing:
+        return jsonify({"error": "Missing parameters", "missing": missing}), 400
+
+    title = data["title"]
+    description = data["description"]
+    calories_text = data["calories"]
+    time_text = data["time"]
+    ingredients = data["ingredients"]
+
+    prompt = (
+        f"Eres un chef profesional. A partir del siguiente resumen de una receta, genera una receta completa "
+        f"que cumpla con los siguientes criterios y devuélvela **exclusivamente** en formato JSON, "
+        f"\n'title': nombre de la receta (manten el mismo nombre),"
+        f"\n'description': mejoralo con descripción detallada del platillo y a qué plato de qué país se asemeja o se inspira,"
+        f"\n'ingredients': lista de ingredientes con cantidades,"
+        f"\n'instructions': lista de pasos para la preparación,"
+        f"\n'prep_time': tiempo total estimado de preparación, por ejemplo 1 hora y 40 minutos (manten y mejora el mismo tiempo de preparación),"
+        f"\n'preparation_time': tiempo en formato time de preparación (ejemplo: 01:40:00 eso es 1 hora y 40 minutos),"
+        f"\n'calories_per_serving': calorías aproximadas por porción, con breve explicación (manten la misma cantidad de calorias),"
+        f"\n'calories': las calorías aproximadas por porción en formato integer (ejemplo: 650)."
+        f"**solo en formato JSON**, manteniendo las calorías y tiempo dados. La estructura debe ser exactamente:\n\n"
+        f"{{\n"
+        f"  \"title\": string,\n"
+        f"  \"description\": string,\n"
+        f"  \"ingredients\": [string],\n"
+        f"  \"instructions\": [string],\n"
+        f"  \"prep_time\": string,\n"
+        f"  \"preparation_time\": Time,\n"
+        f"  \"calories_per_serving\": string,\n"
+        f"  \"calories\": integer\n"
+        f"}}\n\n"
+        f"NO incluyas texto adicional ni explicaciones. Solo devuelve el JSON.\n\n"
+        f"Resumen:\n"
+        f"- Título: {title}\n"
+        f"- Descripción: {description}\n"
+        f"- Calorías estimadas: {calories_text}\n"
+        f"- Tiempo estimado: {time_text}\n"
+        f"- Ingredientes disponibles: {ingredients}\n"
+        f"---"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Eres un chef profesional."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+
+        answer = response.choices[0].message.content.strip()
+
+        if answer.startswith("```"):
+            answer = answer.strip("`")
+        if answer.lower().startswith("json"):
+            answer = answer[4:].strip()
+
+        import json
+        parsed = json.loads(answer)
+        return jsonify(parsed)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
