@@ -7,7 +7,6 @@ from PIL import Image
 import requests
 import io
 
-
 # Inicializar cliente de OpenAI (nuevo estilo v1)
 # client = OpenAI(api_key=OPENAI_API_KEY)
 
